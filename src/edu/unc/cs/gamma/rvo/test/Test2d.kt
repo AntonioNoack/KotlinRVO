@@ -7,8 +7,11 @@ import org.joml.Vector2d
 
 fun main() {
 
-    runTest("edu/unc/cs/gamma/rvo/cpplegacy/2d", false, { timeStep, radius, speed ->
-        RVOSimulator(timeStep, radius * 10.0, 16, 20.0, 20.0, radius, speed)
+    runTest("2d", false, 6.0, { timeStep, radius, speed ->
+        RVOSimulator(
+            timeStep, radius * 6.0, 6,
+            5.0, 5.0, radius, speed
+        )
     }, { sim, x, y ->
         sim.addAgent(Vector2d(x, y))
     }, { agent, x, y ->

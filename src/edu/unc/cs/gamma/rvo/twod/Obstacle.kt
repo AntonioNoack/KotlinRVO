@@ -9,4 +9,8 @@ class Obstacle(
     var point: Vector2d,
     var unitDir: Vector2d,
     var id: Int,
-)
+) {
+
+    constructor() : this(false, null, null, Vector2d(), Vector2d(), 0)
+
+}

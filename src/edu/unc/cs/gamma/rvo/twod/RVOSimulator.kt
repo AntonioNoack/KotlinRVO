@@ -1,5 +1,6 @@
 package edu.unc.cs.gamma.rvo.twod
 
+import edu.unc.cs.gamma.rvo.Utils.leftOf
 import org.joml.Vector2d
 
 /**
@@ -58,6 +59,44 @@ class RVOSimulator(
         )
         agents.add(agent)
         return agent
+    }
+
+    fun addObstacle(vertices: List<Vector2d>): Int {
+        if (vertices.size < 2) throw IllegalArgumentException("Shape must contain at least two vertices")
+        val size = vertices.size
+        val indexOfFirst = obstacles.size
+        for (i in vertices.indices) {
+            val point = vertices[i]
+            val obstacle = Obstacle(
+                size == 2,
+                null, null,
+                point, Vector2d(),
+                obstacles.size
+            )
+            if (i > 0) {
+                val prev = obstacles.last()
+                prev.nextObstacle = obstacle
+                obstacle.prevObstacle = prev
+            }
+            if (i == size - 1) {
+                val first = obstacles[indexOfFirst]
+                obstacle.nextObstacle = first
+                first.prevObstacle = obstacle
+            }
+
+            obstacle.unitDir.set(vertices[if (i == size - 1) 0 else i + 1]).sub(point).normalize()
+
+            if (size > 2) {
+                obstacle.isConvex = leftOf(
+                    vertices[if (i == 0) size - 1 else i - 1],
+                    point,
+                    vertices[if (i == size - 1) 0 else i + 1]
+                ) >= 0.0
+            }
+
+            obstacles.add(obstacle)
+        }
+        return indexOfFirst
     }
 
     fun processObstacles() {

@@ -149,7 +149,11 @@ namespace RVO {
 				obstacle->isConvex_ = true;
 			}
 			else {
-				obstacle->isConvex_ = (leftOf(vertices[(i == 0 ? vertices.size() - 1 : i - 1)], vertices[i], vertices[(i == vertices.size() - 1 ? 0 : i + 1)]) >= 0.0f);
+				obstacle->isConvex_ = (leftOf(
+                    vertices[(i == 0 ? vertices.size() - 1 : i - 1)],
+                    vertices[i],
+                    vertices[(i == vertices.size() - 1 ? 0 : i + 1)]) >= 0.0f
+                );
 			}
 
 			obstacle->id_ = obstacles_.size();

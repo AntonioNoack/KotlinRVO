@@ -6,7 +6,7 @@ import org.joml.Vector3d
 
 fun main() {
 
-    runTest("3d", false, { timeStep, radius, speed ->
+    runTest("3d", false, 1.7, { timeStep, radius, speed ->
         RVOSimulator(timeStep, radius * 10.0, 16, 20.0, radius, speed)
     }, { sim, x, y ->
         sim.addAgent(Vector3d(x, y, 0.0))

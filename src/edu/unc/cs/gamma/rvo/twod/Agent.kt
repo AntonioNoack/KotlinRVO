@@ -84,8 +84,8 @@ class Agent(
         val distSq = distSqPointLineSegment(obstacle.point, next.point, position)
         if (distSq < rangeSq) {
             obstacleNeighbors.add(DistancedPair(distSq, obstacle))
-            var i = obstacleNeighbors.size
-            while (i != 0 && distSq < obstacleNeighbors[i - 1].distSq) {
+            var i = obstacleNeighbors.size - 1
+            while (i > 0 && distSq < obstacleNeighbors[i - 1].distSq) {
                 obstacleNeighbors[i].set(obstacleNeighbors[i - 1])
                 i--
             }
@@ -132,7 +132,7 @@ class Agent(
             // Check if velocity obstacle of obstacle is already taken care of by
             // previously constructed obstacle ORCA lines.
             for (j in orcaLines.indices) {
-                val orca = orcaLines[i]
+                val orca = orcaLines[j]
                 val dr = invTimeHorizonObst * radius
                 if (det(invTimeHorizonObst, rp1, orca.point, orca.direction, zero2d)
                     - dr >= -RVO_EPSILON &&
@@ -312,7 +312,7 @@ class Agent(
 
         }
 
-        val numObstLines = orcaLines.size
+        val numObstLines = orcaLength
         val invTimeHorizon = 1.0 / timeHorizon
 
         val relPos = relPos
