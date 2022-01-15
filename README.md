@@ -13,8 +13,8 @@ The only dependency is [JOML](https://github.com/JOML-CI/JOML), but it could be 
 
 ## Functionality
 
-I haven't completely implemented obstacles yet, 3d doesn't support them anyways.
-Additionally, it feels like I have still small bugs in the library, but the main things work :).
+It feels like I still have bugs in the library, and I wouldn't call it production ready, but it might work good enough for you :).
+If you find a typo/bug fix, write me :).
 
 ## Java-Optimizations
 
