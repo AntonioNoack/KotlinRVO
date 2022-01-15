@@ -95,15 +95,38 @@ class Agent(
 
     private val rp1 = Vector2d()
     private val rp2 = Vector2d()
+    private val tmp = Vector2d()
+    private val leftLegDir = Vector2d()
+    private val rightLegDir = Vector2d()
+    private val leftCutoff = Vector2d()
+    private val rightCutoff = Vector2d()
+    private val cutoffVec = Vector2d()
 
     fun computeNewVelocity() {
-        orcaLines.clear()
+
+        // todo old lines should be kept in memory, and be reused
+        var orcaLength = 0
+
+        fun createLine(): Line<Vector2d> {
+            return if (orcaLength < orcaLines.size) {
+                orcaLines[orcaLength]
+            } else {
+                val line = Line(Vector2d(), Vector2d())
+                orcaLines.add(line)
+                line
+            }
+        }
+
+        fun addLine() {
+            orcaLength++
+        }
+
         val invTimeHorizonObst = 1.0 / timeHorizonObstacles
 
         // Create obstacle ORCA lines
         obstacles@ for (i in obstacleNeighbors.indices) {
-            val o1 = obstacleNeighbors[i].instance
-            val o2 = o1.nextObstacle!!
+            var o1 = obstacleNeighbors[i].instance
+            var o2 = o1.nextObstacle!!
             rp1.set(o1.point).sub(position)
             rp2.set(o2.point).sub(position)
             // Check if velocity obstacle of obstacle is already taken care of by
@@ -122,48 +145,170 @@ class Agent(
             val distSq1 = rp1.lengthSquared()
             val distSq2 = rp2.lengthSquared()
             val radiusSq = sq(radius)
-            val obstacleVec = Vector2d(o2.point).sub(o1.point)
+            val obstacleVec = tmp.set(o2.point).sub(o1.point)
             val s = -rp1.dot(obstacleVec) / obstacleVec.lengthSquared()
-            val scaled = Vector2d(obstacleVec).mul(s)
+            val scaled = obstacleVec.mul(-s)
             val distSqLine = scaled.distanceSquared(rp1)
+
+            val line = createLine()
 
             when {
                 s < 0.0 && distSq1 <= radiusSq -> {
                     // Collision with left vertex. Ignore if non-convex.
                     if (o1.isConvex) {
-                        val line = Line(Vector2d(), Vector2d())
                         line.point.set(0.0)
                         line.direction.set(-rp1.y, rp1.x).normalize()
-                        orcaLines.add(line)
+                        addLine()
                     }
                     continue@obstacles
                 }
                 s > 1.0 && distSq2 <= radiusSq -> {
                     // Collision with right vertex. Ignore if non-convex
-                    // or if it will be taken care of by neighoring obstace
+                    // or if it will be taken care of by neighboring obstacle
                     if (o2.isConvex && det(rp2, o2.unitDir) >= 0.0) {
-                        val line = Line(Vector2d(), Vector2d())
                         line.point.set(0.0)
                         line.direction.set(-rp2.y, rp2.x).normalize()
-                        orcaLines.add(line)
+                        addLine()
                     }
                     continue@obstacles
                 }
                 s >= 0.0 && s < 1.0 && distSqLine <= radiusSq -> {
-                    val line = Line(Vector2d(), Vector2d())
                     line.point.set(0.0)
-                    line.direction.set(o1.unitDir).mul(-1.0)
-                    orcaLines.add(line)
+                    line.direction.set(o1.unitDir).negate()
+                    addLine()
                     continue@obstacles
                 }
             }
 
             // No collision.
             // Compute legs. When obliquely viewed, both legs can come from a single
-            // vertex. Legs extend cut-off line when nonconvex vertex.
+            // vertex. Legs extend cut-off line when non-convex vertex.
 
-            // long stuff coming...
-            TODO()
+            when {
+                s < 0.0 && distSqLine <= radiusSq -> {
+                    // Obstacle viewed obliquely so that left vertex
+                    // defines velocity obstacle.
+                    if (!o1.isConvex) {
+                        // ignore obstacle
+                        continue@obstacles
+                    }
+                    o2 = o1
+                    val leg1 = sqrt(distSq1 - radiusSq)
+                    setLeftLeg(rp1, leg1, radius, distSq1, leftLegDir)
+                    setRightLeg(rp1, leg1, radius, distSq1, rightLegDir)
+                }
+                s > 1.0 && distSqLine <= radiusSq -> {
+                    // Obstacle viewed obliquely so that right vertex
+                    // defines velocity obstacle.
+                    if (!o2.isConvex) {
+                        // ignore obstacle
+                        continue@obstacles
+                    }
+                    o1 = o2
+                    val leg2 = sqrt(distSq2 - radiusSq)
+                    setLeftLeg(rp2, leg2, radius, distSq2, leftLegDir)
+                    setRightLeg(rp2, leg2, radius, distSq2, rightLegDir)
+                }
+                else -> {
+                    // unusual situation
+                    if (o1.isConvex) {
+                        val leg1 = sqrt(distSq1 - radiusSq)
+                        setLeftLeg(rp1, leg1, radius, distSq1, leftLegDir)
+                    } else {
+                        // Left vertex non-convex; left leg extends cut-off line
+                        leftLegDir.set(o1.unitDir).negate()
+                    }
+                    if (o2.isConvex) {
+                        val leg2 = sqrt(distSq2 - radiusSq)
+                        setRightLeg(rp2, leg2, radius, distSq2, rightLegDir)
+                    } else {
+                        // not negated??
+                        // Right vertex non-convex; right leg extends cut-off line.
+                        rightLegDir.set(o1.unitDir)
+                    }
+                }
+            }
+
+            val leftNeighbor = o1.prevObstacle!!
+
+            var isLeftLegForeign = false
+            var isRightLegForeign = false
+
+            if (o1.isConvex && det(leftLegDir, leftNeighbor.unitDir) <= 0.0) {// changed sign
+                // Left leg points into obstacle
+                leftLegDir.set(leftNeighbor.unitDir).negate()
+                isLeftLegForeign = true
+            }
+
+            if (o2.isConvex && det(rightLegDir, o2.unitDir) <= 0.0) {
+                // Right leg points into obstacle
+                rightLegDir.set(o2.unitDir)
+                isRightLegForeign = true
+            }
+
+            // Compute cut-off centers
+            val leftCutoff = leftCutoff.set(o1.point).sub(position).mul(invTimeHorizonObst)
+            val rightCutoff = rightCutoff.set(o2.point).sub(position).mul(invTimeHorizonObst)
+            val cutoffVec = cutoffVec.set(rightCutoff).sub(leftCutoff)
+
+            // Project current velocity on velocity obstacle
+            // Check if current velocity is projected on cutoff circles
+            val t = if (o1 === o2) 0.5
+            else (velocity.dot(cutoffVec) - leftCutoff.dot(cutoffVec)) / cutoffVec.lengthSquared()
+
+            val tLeft = velocity.dot(leftLegDir) - leftCutoff.dot(leftLegDir)
+            val tRight = velocity.dot(rightLegDir) - rightCutoff.dot(rightLegDir)
+
+            when {
+                (t < 0.0 && tLeft < 0.0) || (o1 == o2 && tLeft < 0.0 && tRight < 0.0) -> {
+                    // Project on left cut-off circle
+                    val unitW = line.direction.set(velocity).sub(leftCutoff).normalize()
+                    line.point.set(unitW).mul(radiusSq * invTimeHorizonObst).add(leftCutoff)
+                    line.direction.set(unitW.y, -unitW.x)
+                    addLine()
+                    continue@obstacles
+                }
+                t > 1.0 && tRight < 0.0 -> {
+                    // Project on right cut-off circle
+                    val unitW = line.direction.set(velocity).sub(rightCutoff).normalize()
+                    line.point.set(unitW).mul(radiusSq * invTimeHorizonObst).add(rightCutoff)
+                    line.direction.set(unitW.y, -unitW.x)
+                    addLine()
+                    continue@obstacles
+                }
+            }
+
+            // Project on left leg, right leg, or cut-off line, whichever is closest
+            // to velocity.
+            val distSqCutoff = if (t < 0.0 || t > 1.0 || o1 == o2) Double.POSITIVE_INFINITY else
+                tmp.set(cutoffVec).mul(t).add(leftCutoff).distanceSquared(velocity)
+            val distSqLeft = if (tLeft < 0.0) Double.POSITIVE_INFINITY else
+                tmp.set(leftLegDir).mul(tLeft).add(leftCutoff).distanceSquared(velocity)
+            val distSqRight = if (tRight < 0.0) Double.POSITIVE_INFINITY else
+                tmp.set(rightLegDir).mul(tRight).add(rightCutoff).distanceSquared(velocity)
+
+            val cutoff = when {
+                distSqCutoff <= distSqLeft && distSqCutoff <= distSqRight -> {
+                    // project on cut-off line.
+                    line.direction.set(o1.unitDir).negate()
+                    leftCutoff
+                }
+                distSqLeft <= distSqRight -> {
+                    // project on left leg
+                    if (isLeftLegForeign) continue@obstacles
+                    line.direction.set(leftLegDir)
+                    leftCutoff
+                }
+                else -> {
+                    // project on right leg
+                    if (isRightLegForeign) continue@obstacles
+                    line.direction.set(rightLegDir).negate()
+                    rightCutoff
+                }
+            }
+
+            line.point.set(-line.direction.y, line.direction.x).mul(radius * invTimeHorizonObst).add(cutoff)
+            addLine()
 
         }
 
@@ -180,9 +325,8 @@ class Agent(
             val combinedRadius = radius + other.radius
             val combinedRadiusSq = sq(combinedRadius)
 
-            val line = Line(Vector2d(), Vector2d())
-            val u = Vector2d()
-            val w = Vector2d()
+            val line = createLine()
+            val w = line.point
 
             if (distSq > combinedRadiusSq) {
                 // no collision
@@ -193,25 +337,19 @@ class Agent(
                     // project on cut-off circle
                     val wLength = sqrt(wLengthSq)
                     w.div(wLength)
-                    u.set(w).mul(combinedRadius * invTimeHorizon - wLength)
+                    w.set(w).mul(combinedRadius * invTimeHorizon - wLength)
                 } else {
                     // project on legs
                     val leg = sqrt(distSq - combinedRadiusSq)
                     if (det(relPos, w) > 0.0) {
                         // left leg
-                        line.direction.set(
-                            relPos.x * leg - relPos.y * combinedRadius,
-                            relPos.x * combinedRadius + relPos.y * leg
-                        ).div(distSq)
+                        setLeftLeg(relPos, leg, combinedRadius, distSq, line.direction)
                     } else {
                         // right leg
-                        line.direction.set(
-                            relPos.x * leg + relPos.y * combinedRadius,
-                            -relPos.x * combinedRadius + relPos.y * leg
-                        ).div(distSq)
+                        setRightLeg(relPos, leg, combinedRadius, distSq, line.direction)
                     }
                     val dot2 = relPos.dot(line.direction)
-                    u.set(line.direction)
+                    w.set(line.direction)
                         .mul(dot2).sub(relVel)
                 }
             } else {
@@ -221,12 +359,17 @@ class Agent(
                 val wLength = w.length()
                 w.div(wLength)
                 line.direction.set(w.y, -w.x)
-                u.set(w).mul(combinedRadius * invTimeStep - wLength)
+                w.mul(combinedRadius * invTimeStep - wLength)
             }
 
-            line.point.set(u).mul(0.5).add(velocity)
-            orcaLines.add(line)
+            line.point.mul(0.5).add(velocity)
+            addLine()
 
+        }
+
+        // free no-longer required lines
+        while (orcaLines.size > orcaLength) {
+            orcaLines.removeAt(orcaLines.lastIndex)
         }
 
         val lineFail = linearProgram2(orcaLines, maxSpeed, targetVelocity, false, newVelocity)
@@ -234,6 +377,32 @@ class Agent(
             linearProgram3(orcaLines, numObstLines, lineFail, maxSpeed, newVelocity)
         }
 
+    }
+
+    private fun setLeftLeg(
+        relPos: Vector2d,
+        leg: Double,
+        radius: Double,
+        distSq: Double,
+        dst: Vector2d
+    ) {
+        dst.set(
+            relPos.x * leg - relPos.y * radius,
+            relPos.x * radius + relPos.y * leg
+        ).div(distSq)
+    }
+
+    private fun setRightLeg(
+        relPos: Vector2d,
+        leg: Double,
+        radius: Double,
+        distSq: Double,
+        dst: Vector2d
+    ) {
+        dst.set(
+            relPos.x * leg + relPos.y * radius,
+            -relPos.x * radius + relPos.y * leg
+        ).div(distSq)
     }
 
     private val relPos = Vector2d()
@@ -328,7 +497,7 @@ class Agent(
             val lineI = lines[i]
             if (det(lineI.direction, zero2d, lineI.point, result) > 0.0) {
                 // Result does not satisfy constraint i. Compute new optimal result
-                val tmp = Vector2d(result)
+                val tmp = tmp.set(result)
                 if (!linearProgram1(lines, i, radius, optVelocity, directionOpt, result)) {
                     result.set(tmp)
                     return i
@@ -347,6 +516,7 @@ class Agent(
             val lineI = lines[i]
             val lineIPoint = lineI.point
             if (det(lineI.direction, zero2d, lineIPoint, result) > distance) {
+                // todo creating & copying tons of lines looks expensive
                 // Result does not satisfy constraint of line i
                 val projLines = ArrayList<Line<Vector2d>>()
                 projLines.addAll(lines.subList(0, numObstLines)) // awkward
@@ -373,17 +543,16 @@ class Agent(
                     line.direction.set(lineJ.direction).sub(lineI.direction).normalize()
                     projLines.add(line)
                 }
-                val tmp = Vector2d(result)
+                val tmp = tmp.set(result)
                 if (linearProgram2(
                         projLines, radius,
                         Vector2d(-lineI.direction.y, lineI.direction.x), true, result
                     ) < projLines.size
                 ) {
-                    /* This should in principle not happen. The result is by definition
-					 * already in the feasible region of this linear program. If it fails,
-					 * it is due to small floating point error, and the current result is
-					 * kept.
-					 */
+                    // This should in principle not happen. The result is by definition
+                    // already in the feasible region of this linear program. If it fails,
+                    // it is due to small floating point error, and the current result is
+                    // kept.
                     result.set(tmp)
                 }
                 distance = det(lineI.direction, zero2d, lineIPoint, result)

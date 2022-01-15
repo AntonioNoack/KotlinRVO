@@ -242,7 +242,7 @@ class Agent(
                     plane.normal.set(planeJ.normal).sub(planeI.normal).normalize()
                     projPlanes.add(plane)
                 }
-                val tmp = Vector3d()
+                val tmp = tmp.set(result)
                 if (linearProgram3(projPlanes, radius, planeI.normal, true, result) < projPlanes.size) {
                     result.set(tmp)
                 }
@@ -250,6 +250,8 @@ class Agent(
             }
         }
     }
+
+    private val tmp = Vector3d()
 
     private fun intersectionMagic(
         crossProduct: Vector3d,

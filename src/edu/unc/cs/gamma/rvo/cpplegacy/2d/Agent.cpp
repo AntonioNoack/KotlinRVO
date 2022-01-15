@@ -152,8 +152,14 @@ namespace RVO {
 				obstacle2 = obstacle1;
 
 				const float leg1 = std::sqrt(distSq1 - radiusSq);
-				leftLegDirection = Vector2(relativePosition1.x() * leg1 - relativePosition1.y() * radius_, relativePosition1.x() * radius_ + relativePosition1.y() * leg1) / distSq1;
-				rightLegDirection = Vector2(relativePosition1.x() * leg1 + relativePosition1.y() * radius_, -relativePosition1.x() * radius_ + relativePosition1.y() * leg1) / distSq1;
+				leftLegDirection = Vector2(
+				    relativePosition1.x() * leg1 - relativePosition1.y() * radius_,
+				    relativePosition1.x() * radius_ + relativePosition1.y() * leg1
+				) / distSq1;
+				rightLegDirection = Vector2(
+				    relativePosition1.x() * leg1 + relativePosition1.y() * radius_,
+				    -relativePosition1.x() * radius_ + relativePosition1.y() * leg1
+				) / distSq1;
 			}
 			else if (s > 1.0f && distSqLine <= radiusSq) {
 				/*
@@ -168,14 +174,23 @@ namespace RVO {
 				obstacle1 = obstacle2;
 
 				const float leg2 = std::sqrt(distSq2 - radiusSq);
-				leftLegDirection = Vector2(relativePosition2.x() * leg2 - relativePosition2.y() * radius_, relativePosition2.x() * radius_ + relativePosition2.y() * leg2) / distSq2;
-				rightLegDirection = Vector2(relativePosition2.x() * leg2 + relativePosition2.y() * radius_, -relativePosition2.x() * radius_ + relativePosition2.y() * leg2) / distSq2;
+				leftLegDirection = Vector2(
+				    relativePosition2.x() * leg2 - relativePosition2.y() * radius_,
+				    relativePosition2.x() * radius_ + relativePosition2.y() * leg2
+				) / distSq2;
+				rightLegDirection = Vector2(
+				    relativePosition2.x() * leg2 + relativePosition2.y() * radius_,
+				    -relativePosition2.x() * radius_ + relativePosition2.y() * leg2
+				) / distSq2;
 			}
 			else {
 				/* Usual situation. */
 				if (obstacle1->isConvex_) {
 					const float leg1 = std::sqrt(distSq1 - radiusSq);
-					leftLegDirection = Vector2(relativePosition1.x() * leg1 - relativePosition1.y() * radius_, relativePosition1.x() * radius_ + relativePosition1.y() * leg1) / distSq1;
+					leftLegDirection = Vector2(
+                        relativePosition1.x() * leg1 - relativePosition1.y() * radius_,
+                        relativePosition1.x() * radius_ + relativePosition1.y() * leg1
+					) / distSq1;
 				}
 				else {
 					/* Left vertex non-convex; left leg extends cut-off line. */
@@ -184,7 +199,10 @@ namespace RVO {
 
 				if (obstacle2->isConvex_) {
 					const float leg2 = std::sqrt(distSq2 - radiusSq);
-					rightLegDirection = Vector2(relativePosition2.x() * leg2 + relativePosition2.y() * radius_, -relativePosition2.x() * radius_ + relativePosition2.y() * leg2) / distSq2;
+					rightLegDirection = Vector2(
+					    relativePosition2.x() * leg2 + relativePosition2.y() * radius_,
+					    -relativePosition2.x() * radius_ + relativePosition2.y() * leg2
+					) / distSq2;
 				}
 				else {
 					/* Right vertex non-convex; right leg extends cut-off line. */
@@ -250,14 +268,21 @@ namespace RVO {
 			 * Project on left leg, right leg, or cut-off line, whichever is closest
 			 * to velocity.
 			 */
-			const float distSqCutoff = ((t < 0.0f || t > 1.0f || obstacle1 == obstacle2) ? std::numeric_limits<float>::infinity() : absSq(velocity_ - (leftCutoff + t * cutoffVec)));
-			const float distSqLeft = ((tLeft < 0.0f) ? std::numeric_limits<float>::infinity() : absSq(velocity_ - (leftCutoff + tLeft * leftLegDirection)));
-			const float distSqRight = ((tRight < 0.0f) ? std::numeric_limits<float>::infinity() : absSq(velocity_ - (rightCutoff + tRight * rightLegDirection)));
+			const float distSqCutoff = ((t < 0.0f || t > 1.0f || obstacle1 == obstacle2) ?
+			    std::numeric_limits<float>::infinity() :
+			    absSq(velocity_ - (leftCutoff + t * cutoffVec)));
+			const float distSqLeft = ((tLeft < 0.0f) ?
+			    std::numeric_limits<float>::infinity() :
+			    absSq(velocity_ - (leftCutoff + tLeft * leftLegDirection)));
+			const float distSqRight = ((tRight < 0.0f) ?
+			    std::numeric_limits<float>::infinity() :
+			    absSq(velocity_ - (rightCutoff + tRight * rightLegDirection)));
 
 			if (distSqCutoff <= distSqLeft && distSqCutoff <= distSqRight) {
 				/* Project on cut-off line. */
 				line.direction = -obstacle1->unitDir_;
-				line.point = leftCutoff + radius_ * invTimeHorizonObst * Vector2(-line.direction.y(), line.direction.x());
+				line.point = leftCutoff + radius_ * invTimeHorizonObst *
+				Vector2(-line.direction.y(), line.direction.x());
 				orcaLines_.push_back(line);
 				continue;
 			}
@@ -268,7 +293,8 @@ namespace RVO {
 				}
 
 				line.direction = leftLegDirection;
-				line.point = leftCutoff + radius_ * invTimeHorizonObst * Vector2(-line.direction.y(), line.direction.x());
+				line.point = leftCutoff + radius_ * invTimeHorizonObst *
+				Vector2(-line.direction.y(), line.direction.x());
 				orcaLines_.push_back(line);
 				continue;
 			}
@@ -279,7 +305,8 @@ namespace RVO {
 				}
 
 				line.direction = -rightLegDirection;
-				line.point = rightCutoff + radius_ * invTimeHorizonObst * Vector2(-line.direction.y(), line.direction.x());
+				line.point = rightCutoff + radius_ * invTimeHorizonObst *
+				Vector2(-line.direction.y(), line.direction.x());
 				orcaLines_.push_back(line);
 				continue;
 			}

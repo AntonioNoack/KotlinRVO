@@ -4,6 +4,9 @@ This is a port of https://github.com/snape/RVO2 and https://github.com/snape/RVO
 
 You therefore could compile this library to JavaScript and Java.
 
+I also changed floats to doubles, because I intend to use this libary in my game engine xD.
+Changing it back should be easy.
+
 ## Dependencies
 
 The only dependency is [JOML](https://github.com/JOML-CI/JOML), but it could be replaced easily.
